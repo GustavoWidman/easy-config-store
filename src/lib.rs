@@ -6,6 +6,7 @@ mod serializer;
 use std::{
     ops::{Deref, DerefMut},
     path::PathBuf,
+    sync::Arc,
 };
 
 #[derive(Debug, Clone)]
@@ -63,6 +64,10 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
             nest,
             cached: T::deserialize(cached)?,
         })
+    }
+
+    pub fn arc(self) -> Arc<Self> {
+        return Arc::new(self);
     }
 
     #[cfg(feature = "tokio")]
