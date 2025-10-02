@@ -10,7 +10,9 @@ struct Config {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut config = ConfigStore::<Config>::async_read("cache/async-config.yaml").await?;
+    let mut config =
+        ConfigStore::<Config>::async_read("cache/async-config.yaml", "settings".to_string())
+            .await?;
     let config_stale = config.clone();
 
     // store implements deref and deref_mut for the inner type

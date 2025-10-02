@@ -11,11 +11,12 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct ConfigStore<T: Default + Serialize + DeserializeOwned + PartialEq> {
     pub path: PathBuf,
+    nest: Option<String>,
     cached: T,
 }
 
 impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
-    fn preflight(path: PathBuf) -> Result<Option<Self>, anyhow::Error> {
+    fn preflight(path: PathBuf, nest: Option<String>) -> Result<Option<Self>, anyhow::Error> {
         if path.is_dir() {
             bail!(
                 "Given config path is a directory... either change the path or delete the directory."
@@ -23,7 +24,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         }
 
         if !path.exists() {
-            return Ok(Some(Self::new(path)?));
+            return Ok(Some(Self::new(path, nest)?));
         }
 
         if !path.is_file() {
@@ -35,39 +36,67 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         Ok(None)
     }
 
-    pub fn read(path: impl Into<PathBuf>) -> Result<Self, anyhow::Error> {
+    pub fn read(
+        path: impl Into<PathBuf>,
+        nest: impl Into<Option<String>>,
+    ) -> Result<Self, anyhow::Error> {
         let path = path.into();
+        let nest = nest.into();
 
-        if let Some(config) = Self::preflight(path.clone())? {
+        if let Some(config) = Self::preflight(path.clone(), nest.clone())? {
             return Ok(config);
         }
 
         let config_str = std::fs::read_to_string(&path)?;
+        let deserialized: serializer::Value = serializer::from_str(&config_str)?;
+
+        let cached = match nest {
+            Some(ref key) => deserialized
+                .get(key)
+                .ok_or_else(|| anyhow::anyhow!("Nested config '{}' not found", key))?
+                .clone(),
+            None => deserialized,
+        };
 
         Ok(Self {
             path,
-            cached: serializer::from_str(&config_str)?,
+            nest,
+            cached: T::deserialize(cached)?,
         })
     }
 
     #[cfg(feature = "tokio")]
-    pub async fn async_read(path: impl Into<PathBuf>) -> Result<Self, anyhow::Error> {
+    pub async fn async_read(
+        path: impl Into<PathBuf>,
+        nest: impl Into<Option<String>>,
+    ) -> Result<Self, anyhow::Error> {
         let path = path.into();
+        let nest = nest.into();
 
-        if let Some(config) = Self::preflight(path.clone())? {
+        if let Some(config) = Self::preflight(path.clone(), nest.clone())? {
             return Ok(config);
         }
 
         let config_str = tokio::fs::read_to_string(&path).await?;
+        let deserialized: serializer::Value = serializer::from_str(&config_str)?;
+
+        let cached = match nest {
+            Some(ref key) => deserialized
+                .get(key)
+                .ok_or_else(|| anyhow::anyhow!("Nested config '{}' not found", key))?
+                .clone(),
+            None => deserialized,
+        };
 
         Ok(Self {
             path,
-            cached: serializer::from_str(&config_str)?,
+            nest,
+            cached: T::deserialize(cached)?,
         })
     }
 
     pub fn update(&mut self) -> anyhow::Result<bool> {
-        let new = Self::read(self.path.clone())?;
+        let new = Self::read(self.path.clone(), self.nest.clone())?;
 
         Ok(match self.cached == new.cached {
             true => false,
@@ -80,7 +109,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
 
     #[cfg(feature = "tokio")]
     pub async fn async_update(&mut self) -> anyhow::Result<bool> {
-        let new = Self::async_read(self.path.clone()).await?;
+        let new = Self::async_read(self.path.clone(), self.nest.clone()).await?;
 
         Ok(match self.cached == new.cached {
             true => false,
@@ -91,11 +120,12 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         })
     }
 
-    fn new(path: PathBuf) -> Result<Self, anyhow::Error> {
+    fn new(path: PathBuf, nest: Option<String>) -> Result<Self, anyhow::Error> {
         std::fs::create_dir_all(path.parent().unwrap())?;
 
         let config = Self {
             path,
+            nest,
             cached: T::default(),
         };
 
@@ -109,15 +139,55 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
     }
 
     pub fn save(&self) -> Result<(), anyhow::Error> {
-        std::fs::write(&self.path, serializer::to_string(&self.cached)?)?;
+        let to_write = match &self.nest {
+            Some(key) => {
+                // Read existing config or create empty map
+                let mut root: std::collections::HashMap<String, serializer::Value> =
+                    if self.path.exists() {
+                        let content = std::fs::read_to_string(&self.path)?;
+                        serializer::from_str(&content)?
+                    } else {
+                        std::collections::HashMap::new()
+                    };
 
+                // Serialize cached to string, then parse to Value
+                let cached_str = serializer::to_string(&self.cached)?;
+                let cached_value: serializer::Value = serializer::from_str(&cached_str)?;
+
+                root.insert(key.clone(), cached_value);
+                serializer::to_string(&root)?
+            }
+            None => serializer::to_string(&self.cached)?,
+        };
+
+        std::fs::write(&self.path, to_write)?;
         Ok(())
     }
 
     #[cfg(feature = "tokio")]
     pub async fn async_save(&self) -> Result<(), anyhow::Error> {
-        tokio::fs::write(&self.path, serializer::to_string(&self.cached)?).await?;
+        let to_write = match &self.nest {
+            Some(key) => {
+                // Read existing config or create empty map
+                let mut root: std::collections::HashMap<String, serializer::Value> =
+                    if self.path.exists() {
+                        let content = std::fs::read_to_string(&self.path)?;
+                        serializer::from_str(&content)?
+                    } else {
+                        std::collections::HashMap::new()
+                    };
 
+                // Serialize cached to string, then parse to Value
+                let cached_str = serializer::to_string(&self.cached)?;
+                let cached_value: serializer::Value = serializer::from_str(&cached_str)?;
+
+                root.insert(key.clone(), cached_value);
+                serializer::to_string(&root)?
+            }
+            None => serializer::to_string(&self.cached)?,
+        };
+
+        tokio::fs::write(&self.path, to_write).await?;
         Ok(())
     }
 }

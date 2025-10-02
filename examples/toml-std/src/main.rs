@@ -9,7 +9,7 @@ struct Config {
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut config = ConfigStore::<Config>::read("cache/std-config.toml")?;
+    let mut config = ConfigStore::<Config>::read("cache/std-config.toml", None)?;
     let config_stale = config.clone();
 
     // store implements deref and deref_mut for the inner type

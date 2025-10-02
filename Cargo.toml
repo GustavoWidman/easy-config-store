@@ -1,6 +1,6 @@
 [package]
 name = "easy-config-store"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 authors = ["Gustavo Widman <admin@r3dlust.com>"]
 license = "MIT"
@@ -29,6 +29,6 @@ yaml = ["dep:serde_yaml"]
 [dev-dependencies]
 tokio = { version = "1.44.1", features = ["full"] }
 easy-config-store = { path = ".", default-features = false, features = [
-	"toml",
-	"tokio",
+  "toml",
+  "tokio",
 ] }
