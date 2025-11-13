@@ -43,7 +43,7 @@ struct Config {
     port: u16,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
     // Read or create config file
     let mut config = ConfigStore::<Config>::read("config.json")?;
 
@@ -74,7 +74,7 @@ struct Config {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     let mut config = ConfigStore::<Config>::async_read("config.toml").await?;
 
     config.password = "new_password".into();
@@ -91,22 +91,22 @@ async fn main() -> anyhow::Result<()> {
 
 ```rust
 // Create or read config from a file (sync)
-ConfigStore::<T>::read("path/to/config.json") -> Result<ConfigStore<T>, anyhow::Error>
+ConfigStore::<T>::read("path/to/config.json") -> Result<ConfigStore<T>, eyre::Error>
 
 // Create or read config from a file (async)
-ConfigStore::<T>::async_read("path/to/config.json").await -> Result<ConfigStore<T>, anyhow::Error>
+ConfigStore::<T>::async_read("path/to/config.json").await -> Result<ConfigStore<T>, eyre::Error>
 
 // Save config to file (sync)
-config.save() -> Result<(), anyhow::Error>
+config.save() -> Result<(), eyre::Error>
 
 // Save config to file (async)
-config.async_save().await -> Result<(), anyhow::Error>
+config.async_save().await -> Result<(), eyre::Error>
 
 // Update from file (sync)
-config.update() -> anyhow::Result<bool>
+config.update() -> eyre::Result<bool>
 
 // Update from file (async)
-config.async_update().await -> anyhow::Result<bool>
+config.async_update().await -> eyre::Result<bool>
 
 // Consume the ConfigStore and return the inner config
 config.into_inner() -> T

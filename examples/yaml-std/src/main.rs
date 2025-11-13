@@ -8,7 +8,7 @@ struct Config {
     port: u16,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> eyre::Result<()> {
     let mut config = ConfigStore::<Config>::read("cache/std-config.yaml", None)?;
     let config_stale = config.clone();
 

@@ -1,4 +1,4 @@
-use anyhow::bail;
+use eyre::bail;
 use serde::{Serialize, de::DeserializeOwned};
 
 mod serializer;
@@ -17,7 +17,7 @@ pub struct ConfigStore<T: Default + Serialize + DeserializeOwned + PartialEq> {
 }
 
 impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
-    fn preflight(path: PathBuf, nest: Option<String>) -> Result<Option<Self>, anyhow::Error> {
+    fn preflight(path: PathBuf, nest: Option<String>) -> Result<Option<Self>, eyre::Error> {
         if path.is_dir() {
             bail!(
                 "Given config path is a directory... either change the path or delete the directory."
@@ -40,7 +40,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
     pub fn read(
         path: impl Into<PathBuf>,
         nest: impl Into<Option<String>>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, eyre::Error> {
         let path = path.into();
         let nest = nest.into();
 
@@ -54,7 +54,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         let cached = match nest {
             Some(ref key) => deserialized
                 .get(key)
-                .ok_or_else(|| anyhow::anyhow!("Nested config '{}' not found", key))?
+                .ok_or_else(|| eyre::eyre!("Nested config '{}' not found", key))?
                 .clone(),
             None => deserialized,
         };
@@ -74,7 +74,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
     pub async fn async_read(
         path: impl Into<PathBuf>,
         nest: impl Into<Option<String>>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, eyre::Error> {
         let path = path.into();
         let nest = nest.into();
 
@@ -88,7 +88,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         let cached = match nest {
             Some(ref key) => deserialized
                 .get(key)
-                .ok_or_else(|| anyhow::anyhow!("Nested config '{}' not found", key))?
+                .ok_or_else(|| eyre::eyre!("Nested config '{}' not found", key))?
                 .clone(),
             None => deserialized,
         };
@@ -100,7 +100,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         })
     }
 
-    pub fn update(&mut self) -> anyhow::Result<bool> {
+    pub fn update(&mut self) -> eyre::Result<bool> {
         let new = Self::read(self.path.clone(), self.nest.clone())?;
 
         Ok(match self.cached == new.cached {
@@ -113,7 +113,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
     }
 
     #[cfg(feature = "tokio")]
-    pub async fn async_update(&mut self) -> anyhow::Result<bool> {
+    pub async fn async_update(&mut self) -> eyre::Result<bool> {
         let new = Self::async_read(self.path.clone(), self.nest.clone()).await?;
 
         Ok(match self.cached == new.cached {
@@ -125,7 +125,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         })
     }
 
-    fn new(path: PathBuf, nest: Option<String>) -> Result<Self, anyhow::Error> {
+    fn new(path: PathBuf, nest: Option<String>) -> Result<Self, eyre::Error> {
         std::fs::create_dir_all(path.parent().unwrap())?;
 
         let config = Self {
@@ -143,7 +143,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         self.cached
     }
 
-    pub fn save(&self) -> Result<(), anyhow::Error> {
+    pub fn save(&self) -> Result<(), eyre::Error> {
         let to_write = match &self.nest {
             Some(key) => {
                 // Read existing config or create empty map
@@ -170,7 +170,7 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
     }
 
     #[cfg(feature = "tokio")]
-    pub async fn async_save(&self) -> Result<(), anyhow::Error> {
+    pub async fn async_save(&self) -> Result<(), eyre::Error> {
         let to_write = match &self.nest {
             Some(key) => {
                 // Read existing config or create empty map

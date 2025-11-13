@@ -18,12 +18,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
 
 [[package]]
-name = "anyhow"
-version = "1.0.97"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
-
-[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -64,10 +58,10 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "easy-config-store"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
- "anyhow",
  "easy-config-store",
+ "eyre",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -82,6 +76,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "eyre"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cd915d99f24784cdc19fd37ef22b97e3ff0ae756c7e492e9fbfe897d61e2aec"
+dependencies = [
+ "indenter",
+ "once_cell",
+]
+
+[[package]]
 name = "gimli"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -92,6 +96,12 @@ name = "hashbrown"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+
+[[package]]
+name = "indenter"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "964de6e86d545b246d84badc0fef527924ace5134f30641c203ef52ba83f58d5"
 
 [[package]]
 name = "indexmap"
@@ -113,8 +123,8 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 name = "json-async"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "easy-config-store",
+ "eyre",
  "serde",
  "tokio",
 ]
@@ -123,8 +133,8 @@ dependencies = [
 name = "json-std"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "easy-config-store",
+ "eyre",
  "serde",
 ]
 
@@ -178,6 +188,12 @@ checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "parking_lot"
@@ -388,8 +404,8 @@ dependencies = [
 name = "toml-async"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "easy-config-store",
+ "eyre",
  "serde",
  "tokio",
 ]
@@ -398,8 +414,8 @@ dependencies = [
 name = "toml-std"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "easy-config-store",
+ "eyre",
  "serde",
 ]
 
@@ -529,8 +545,8 @@ dependencies = [
 name = "yaml-async"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "easy-config-store",
+ "eyre",
  "serde",
  "tokio",
 ]
@@ -539,7 +555,7 @@ dependencies = [
 name = "yaml-std"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "easy-config-store",
+ "eyre",
  "serde",
 ]

@@ -9,7 +9,7 @@ struct Config {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     let mut config = ConfigStore::<Config>::async_read("cache/async-config.json", None).await?;
     let config_stale = config.clone();
 
