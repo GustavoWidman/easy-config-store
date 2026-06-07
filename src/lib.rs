@@ -9,6 +9,11 @@ use std::{
     sync::Arc,
 };
 
+fn config_to_value<T: Serialize>(config: &T) -> Result<serializer::Value, eyre::Error> {
+    let config_str = serializer::to_string(config)?;
+    Ok(serializer::from_str(&config_str)?)
+}
+
 #[derive(Debug, Clone)]
 pub struct ConfigStore<T: Default + Serialize + DeserializeOwned + PartialEq> {
     pub path: PathBuf,
@@ -143,6 +148,22 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> ConfigStore<T> {
         self.cached
     }
 
+    pub fn merge(&mut self, other_config: T) -> Result<(), eyre::Error> {
+        let mut config_value = config_to_value(&self.cached)?;
+        let other_value = config_to_value(&other_config)?;
+        serializer::merge_values(&mut config_value, other_value)?;
+        self.cached = T::deserialize(config_value)?;
+        Ok(())
+    }
+
+    pub fn overwrite(&mut self, other_config: T) -> Result<(), eyre::Error> {
+        let mut config_value = config_to_value(&self.cached)?;
+        let other_value = config_to_value(&other_config)?;
+        serializer::overwrite_values(&mut config_value, other_value);
+        self.cached = T::deserialize(config_value)?;
+        Ok(())
+    }
+
     pub fn save(&self) -> Result<(), eyre::Error> {
         let to_write = match &self.nest {
             Some(key) => {
@@ -217,3 +238,126 @@ impl<T: Default + Serialize + DeserializeOwned + PartialEq> PartialEq for Config
     }
 }
 impl<T: Default + Serialize + DeserializeOwned + PartialEq> Eq for ConfigStore<T> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+    struct TestConfig {
+        name: Option<String>,
+        database: DatabaseConfig,
+        features: FeatureConfig,
+    }
+
+    #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+    struct DatabaseConfig {
+        url: Option<String>,
+        pool_size: Option<u16>,
+    }
+
+    #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+    struct FeatureConfig {
+        enabled: Option<bool>,
+    }
+
+    fn store(config: TestConfig) -> ConfigStore<TestConfig> {
+        ConfigStore {
+            path: PathBuf::from("/tmp/easy-config-store-test.toml"),
+            nest: None,
+            cached: config,
+        }
+    }
+
+    #[test]
+    fn merge_adds_missing_nested_values() {
+        let mut config = store(TestConfig {
+            name: Some("app".to_owned()),
+            database: DatabaseConfig {
+                url: Some("sqlite://app.db".to_owned()),
+                pool_size: None,
+            },
+            features: FeatureConfig::default(),
+        });
+        let other = TestConfig {
+            name: None,
+            database: DatabaseConfig {
+                url: None,
+                pool_size: Some(8),
+            },
+            features: FeatureConfig {
+                enabled: Some(true),
+            },
+        };
+
+        config.merge(other).expect("merge succeeds");
+
+        assert_eq!(config.name.as_deref(), Some("app"));
+        assert_eq!(config.database.url.as_deref(), Some("sqlite://app.db"));
+        assert_eq!(config.database.pool_size, Some(8));
+        assert_eq!(config.features.enabled, Some(true));
+    }
+
+    #[test]
+    fn merge_allows_equal_values() {
+        let mut config = store(TestConfig {
+            name: Some("app".to_owned()),
+            ..Default::default()
+        });
+        let other = TestConfig {
+            name: Some("app".to_owned()),
+            ..Default::default()
+        };
+
+        config.merge(other).expect("equal values do not conflict");
+
+        assert_eq!(config.name.as_deref(), Some("app"));
+    }
+
+    #[test]
+    fn merge_errors_on_conflicting_values() {
+        let mut config = store(TestConfig {
+            name: Some("app".to_owned()),
+            ..Default::default()
+        });
+        let other = TestConfig {
+            name: Some("other".to_owned()),
+            ..Default::default()
+        };
+
+        let error = config.merge(other).expect_err("conflict should fail");
+
+        assert!(error.to_string().contains("conflicting config value"));
+        assert_eq!(config.name.as_deref(), Some("app"));
+    }
+
+    #[test]
+    fn overwrite_replaces_conflicting_values_and_keeps_missing_values() {
+        let mut config = store(TestConfig {
+            name: Some("app".to_owned()),
+            database: DatabaseConfig {
+                url: Some("sqlite://app.db".to_owned()),
+                pool_size: Some(4),
+            },
+            features: FeatureConfig::default(),
+        });
+        let other = TestConfig {
+            name: Some("other".to_owned()),
+            database: DatabaseConfig {
+                url: None,
+                pool_size: Some(8),
+            },
+            features: FeatureConfig {
+                enabled: Some(true),
+            },
+        };
+
+        config.overwrite(other).expect("overwrite succeeds");
+
+        assert_eq!(config.name.as_deref(), Some("other"));
+        assert_eq!(config.database.url.as_deref(), Some("sqlite://app.db"));
+        assert_eq!(config.database.pool_size, Some(8));
+        assert_eq!(config.features.enabled, Some(true));
+    }
+}
